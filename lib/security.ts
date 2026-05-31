@@ -6,7 +6,17 @@ const maxRequestsPerWindow = 30;
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 
 export function getAppUrl() {
-  return process.env.APP_URL || "http://127.0.0.1:4174";
+  const configuredUrl = process.env.APP_URL?.trim();
+
+  if (configuredUrl && !configuredUrl.includes("127.0.0.1") && !configuredUrl.includes("localhost")) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  if (process.env.VERCEL === "1") {
+    return "https://www.unsubly.online";
+  }
+
+  return configuredUrl || "http://127.0.0.1:4174";
 }
 
 export function getAllowedOrigins() {
