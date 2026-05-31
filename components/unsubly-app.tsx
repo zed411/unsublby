@@ -1,7 +1,7 @@
 "use client";
 
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFullList, createPreviewList, type Subscription } from "../lib/subscriptions";
 
 type Filter = "all" | "ready" | "paid" | "notifications" | "removed";
@@ -69,6 +69,7 @@ export function UnsublyApp({
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
   const [scanHasRun, setScanHasRun] = useState(!authEnabled && Boolean(startingIdentity && subscriptions.length));
+  const autoScanStarted = useRef(false);
   const canRunRealScan = !authEnabled || isSignedIn;
   const canScanConnectedEmail = canRunRealScan && gmailConnected;
   const activeIdentity = authEnabled ? signedInEmail : identity;
@@ -102,6 +103,37 @@ export function UnsublyApp({
     setFormHint(hint);
   }
 
+  async function runGmailScan(scanValue: string) {
+    setScanBusy(true);
+    setFormHint("Gmail connected. Running your free scan now...");
+    try {
+      const response = await fetch("/api/email/scan", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Email scan failed.");
+      applyScanResults(
+        scanValue,
+        payload.subscriptions,
+        payload.empty
+          ? "Gmail scan complete. No subscriptions were found in your connected Gmail yet."
+          : payload.unlocked
+            ? `Full Gmail scan complete. Showing ${payload.subscriptions.length} real result${payload.subscriptions.length === 1 ? "" : "s"}.`
+            : `Free Gmail scan complete. Showing up to 6 real result${payload.subscriptions.length === 1 ? "" : "s"}.`
+      );
+    } catch (error) {
+      setFormHint(error instanceof Error ? error.message : "Email scan failed.");
+    } finally {
+      setScanBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!authEnabled || !isSignedIn || !gmailConnected || scanHasRun || autoScanStarted.current) return;
+
+    const scanValue = activeIdentity || "your connected Gmail";
+    autoScanStarted.current = true;
+    void runGmailScan(scanValue);
+  }, [activeIdentity, authEnabled, gmailConnected, isSignedIn, scanHasRun]);
+
   async function handleScan(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canRunRealScan && !initialDemoMode) {
@@ -126,25 +158,7 @@ export function UnsublyApp({
       return;
     }
 
-    setScanBusy(true);
-    try {
-      const response = await fetch("/api/email/scan", { method: "POST" });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Email scan failed.");
-      applyScanResults(
-        scanValue,
-        payload.subscriptions,
-        payload.empty
-          ? "Gmail scan complete. No subscriptions were found in your connected Gmail yet."
-          : payload.unlocked
-            ? `Full Gmail scan complete. Showing ${payload.subscriptions.length} real result${payload.subscriptions.length === 1 ? "" : "s"}.`
-            : `Gmail scan complete. Showing up to 6 real result${payload.subscriptions.length === 1 ? "" : "s"}.`
-      );
-    } catch (error) {
-      setFormHint(error instanceof Error ? error.message : "Email scan failed.");
-    } finally {
-      setScanBusy(false);
-    }
+    await runGmailScan(scanValue);
   }
 
   function updateSubscription(id: string, updater: (subscription: Subscription) => Subscription) {
@@ -215,6 +229,7 @@ export function UnsublyApp({
     setCheckoutBusy(false);
     setScanBusy(false);
     setScanHasRun(false);
+    autoScanStarted.current = false;
   }
 
   return (
@@ -288,7 +303,7 @@ export function UnsublyApp({
             <h2 id="scanTitle">{authEnabled ? "Start your free scan" : "Start a scan"}</h2>
             <p>
               {authEnabled
-                ? "Sign in, connect Gmail with read-only permission, then Unsubly scans that verified mailbox for subscriptions and notifications."
+                ? "Sign in with the Gmail you want checked. After Google gives read-only permission, Unsubly starts the free scan automatically."
                 : "Enter an email or phone number to preview how Unsubly would organize subscriptions. Sample results are used until account connections are enabled."}
             </p>
           </div>
@@ -301,16 +316,16 @@ export function UnsublyApp({
                   {(canRunRealScan || initialDemoMode) && <div className="verified-email-box">{activeIdentity || "demo@example.com"}</div>}
                   {!canRunRealScan && !initialDemoMode ? (
                     <SignInButton mode="modal">
-                      <button type="button">Sign In To Scan</button>
+                      <button type="button">Sign In With Email To Scan</button>
                     </SignInButton>
                   ) : !gmailConnected && !initialDemoMode ? (
                     <a className="connect-button" href="/api/email/google/start">
-                      Connect Gmail
+                      Connect Gmail & Start Scan
                     </a>
                   ) : (
                     <>
                       <button type="submit" disabled={scanBusy}>
-                        {scanBusy ? "Scanning..." : canScanConnectedEmail ? "Start Free Scan" : "Start Sample Scan"}
+                        {scanBusy ? "Scanning..." : canScanConnectedEmail ? "Scan Again" : "Start Sample Scan"}
                       </button>
                       {gmailConnected && (
                         <button className="quiet-button" type="button" onClick={disconnectGmail}>
