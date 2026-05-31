@@ -68,6 +68,7 @@ export function UnsublyApp({
   const [deepSearchUnlocked, setDeepSearchUnlocked] = useState(initialPaid);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
+  const [scanHasRun, setScanHasRun] = useState(Boolean(startingIdentity && subscriptions.length));
   const canRunRealScan = !authEnabled || isSignedIn;
   const canScanConnectedEmail = canRunRealScan && gmailConnected;
   const activeIdentity = authEnabled ? signedInEmail : identity;
@@ -97,6 +98,7 @@ export function UnsublyApp({
     setSelectedSubscriptionId("");
     setDeepSearchUnlocked(false);
     setActiveFilter("all");
+    setScanHasRun(true);
     setFormHint(hint);
   }
 
@@ -132,8 +134,8 @@ export function UnsublyApp({
       applyScanResults(
         scanValue,
         payload.subscriptions,
-        payload.usedFallback
-          ? "Gmail connected, but no clear subscription signals were found yet. Showing sample results for now."
+        payload.empty
+          ? "Gmail scan complete. No subscriptions were found in your connected Gmail yet."
           : "Gmail scan complete. Review each item before removing it."
       );
     } catch (error) {
@@ -210,6 +212,7 @@ export function UnsublyApp({
     setDeepSearchUnlocked(false);
     setCheckoutBusy(false);
     setScanBusy(false);
+    setScanHasRun(false);
   }
 
   return (
@@ -394,8 +397,12 @@ export function UnsublyApp({
               <div className="empty-icon" aria-hidden="true">
                 U
               </div>
-              <h3>Your cleanup list is waiting.</h3>
-              <p>Start with your email or phone number, then review each result before removing anything.</p>
+              <h3>{scanHasRun ? "No subscriptions found yet." : "Your cleanup list is waiting."}</h3>
+              <p>
+                {scanHasRun
+                  ? "Unsubly did not find clear subscription or unsubscribe signals in your connected Gmail. No sample results are shown for real scans."
+                  : "Connect Gmail, start a free scan, then review each real result before removing anything."}
+              </p>
             </div>
           )}
 
