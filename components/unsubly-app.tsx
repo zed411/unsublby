@@ -36,7 +36,8 @@ export function UnsublyApp({
   authEnabled = false,
   signedInEmail = "",
   isSignedIn = false,
-  gmailConnected = false
+  gmailConnected = false,
+  autoStartScan = false
 }: {
   initialDemoMode?: boolean;
   initialIdentity?: string;
@@ -46,6 +47,7 @@ export function UnsublyApp({
   signedInEmail?: string;
   isSignedIn?: boolean;
   gmailConnected?: boolean;
+  autoStartScan?: boolean;
 }) {
   const startingIdentity = authEnabled
     ? signedInEmail
@@ -57,7 +59,7 @@ export function UnsublyApp({
       : initialPaymentPending
         ? "Payment received. Waiting for Stripe webhook confirmation, then refresh this page."
         : gmailConnected
-          ? "Gmail connected. Start a free scan when you're ready."
+          ? "Gmail connected. Running your free scan now."
           : "No scan has run yet."
   );
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
@@ -134,15 +136,21 @@ export function UnsublyApp({
     void runGmailScan(scanValue);
   }, [activeIdentity, authEnabled, gmailConnected, isSignedIn, scanHasRun]);
 
+  useEffect(() => {
+    if (!autoStartScan || !authEnabled || !isSignedIn || gmailConnected || initialDemoMode) return;
+
+    window.location.href = "/api/email/google/start";
+  }, [authEnabled, autoStartScan, gmailConnected, initialDemoMode, isSignedIn]);
+
   async function handleScan(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canRunRealScan && !initialDemoMode) {
-      setFormHint("Sign in with the email you want to check, then start the free scan.");
+      setFormHint("Sign in with the Gmail you want checked.");
       return;
     }
 
     if (authEnabled && !gmailConnected && !initialDemoMode) {
-      setFormHint("Connect Gmail first so Unsubly can scan only your verified mailbox.");
+      window.location.href = "/api/email/google/start";
       return;
     }
 
@@ -221,7 +229,7 @@ export function UnsublyApp({
 
   function clearDemoData() {
     setIdentity(authEnabled ? signedInEmail : "");
-    setFormHint(gmailConnected ? "Gmail connected. Start a free scan when you're ready." : "No scan has run yet.");
+    setFormHint(gmailConnected ? "Gmail connected. Running your free scan now." : "No scan has run yet.");
     setActiveFilter("all");
     setSubscriptions([]);
     setSelectedSubscriptionId("");
@@ -303,7 +311,7 @@ export function UnsublyApp({
             <h2 id="scanTitle">{authEnabled ? "Start your free scan" : "Start a scan"}</h2>
             <p>
               {authEnabled
-                ? "Sign in with the Gmail you want checked. After Google gives read-only permission, Unsubly starts the free scan automatically."
+                ? "One button starts the Gmail scan. Google may ask once for read-only permission, then Unsubly scans automatically."
                 : "Enter an email or phone number to preview how Unsubly would organize subscriptions. Sample results are used until account connections are enabled."}
             </p>
           </div>
@@ -311,16 +319,16 @@ export function UnsublyApp({
           <form className="scan-form" onSubmit={handleScan}>
             {authEnabled ? (
               <>
-                <label>{gmailConnected ? "Connected email" : "Email connection"}</label>
+                <label>{gmailConnected ? "Scanning" : "Gmail scan"}</label>
                 <div className="input-row verified-scan-row">
                   {(canRunRealScan || initialDemoMode) && <div className="verified-email-box">{activeIdentity || "demo@example.com"}</div>}
                   {!canRunRealScan && !initialDemoMode ? (
-                    <SignInButton mode="modal">
-                      <button type="button">Sign In With Email To Scan</button>
+                    <SignInButton mode="modal" forceRedirectUrl="/?scan=1#scan" fallbackRedirectUrl="/?scan=1#scan">
+                      <button type="button">Scan My Gmail</button>
                     </SignInButton>
                   ) : !gmailConnected && !initialDemoMode ? (
                     <a className="connect-button" href="/api/email/google/start">
-                      Connect Gmail & Start Scan
+                      Scan My Gmail
                     </a>
                   ) : (
                     <>
@@ -418,7 +426,7 @@ export function UnsublyApp({
               <p>
                 {scanHasRun
                   ? "Unsubly did not find clear subscription or unsubscribe signals in your connected Gmail. No sample results are shown for real scans."
-                  : "Connect Gmail, start a free scan, then review each real result before removing anything."}
+                  : "Start the Gmail scan, then review each real result before removing anything."}
               </p>
             </div>
           )}

@@ -7,7 +7,7 @@ import { verifyAndFulfillCheckoutSession } from "../lib/stripe-checkout";
 export default async function Home({
   searchParams
 }: {
-  searchParams: Promise<{ demo?: string; identity?: string; payment?: string; session_id?: string }>;
+  searchParams: Promise<{ demo?: string; identity?: string; payment?: string; scan?: string; session_id?: string }>;
 }) {
   const params = await searchParams;
   const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
@@ -36,6 +36,7 @@ export default async function Home({
       signedInEmail={userEmail}
       isSignedIn={Boolean(userId)}
       gmailConnected={gmailConnected}
+      autoStartScan={params.scan === "1"}
     />
   );
 }
