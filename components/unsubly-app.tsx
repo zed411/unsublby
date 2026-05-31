@@ -53,7 +53,7 @@ export function UnsublyApp({
   const [identity, setIdentity] = useState(startingIdentity);
   const [formHint, setFormHint] = useState(
     initialPaid
-      ? "Payment complete. Full Deep Search results unlocked."
+      ? "Payment complete. Start a full Gmail scan when you're ready."
       : initialPaymentPending
         ? "Payment received. Waiting for Stripe webhook confirmation, then refresh this page."
         : gmailConnected
@@ -62,13 +62,13 @@ export function UnsublyApp({
   );
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(
-    initialPaid ? createFullList() : startingIdentity ? createPreviewList() : []
+    authEnabled ? [] : initialPaid ? createFullList() : startingIdentity ? createPreviewList() : []
   );
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState("");
   const [deepSearchUnlocked, setDeepSearchUnlocked] = useState(initialPaid);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
-  const [scanHasRun, setScanHasRun] = useState(Boolean(startingIdentity && subscriptions.length));
+  const [scanHasRun, setScanHasRun] = useState(!authEnabled && Boolean(startingIdentity && subscriptions.length));
   const canRunRealScan = !authEnabled || isSignedIn;
   const canScanConnectedEmail = canRunRealScan && gmailConnected;
   const activeIdentity = authEnabled ? signedInEmail : identity;
@@ -136,7 +136,9 @@ export function UnsublyApp({
         payload.subscriptions,
         payload.empty
           ? "Gmail scan complete. No subscriptions were found in your connected Gmail yet."
-          : "Gmail scan complete. Review each item before removing it."
+          : payload.unlocked
+            ? `Full Gmail scan complete. Showing ${payload.subscriptions.length} real result${payload.subscriptions.length === 1 ? "" : "s"}.`
+            : `Gmail scan complete. Showing up to 6 real result${payload.subscriptions.length === 1 ? "" : "s"}.`
       );
     } catch (error) {
       setFormHint(error instanceof Error ? error.message : "Email scan failed.");

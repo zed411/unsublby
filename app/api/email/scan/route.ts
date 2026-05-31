@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getEmailConnection, saveEmailConnection } from "../../../../lib/db";
+import { getEmailConnection, isDeepSearchUnlocked, saveEmailConnection } from "../../../../lib/db";
 import { refreshGoogleAccessToken, scanGmail } from "../../../../lib/email-providers";
+import { hashIdentity } from "../../../../lib/security";
 
 export async function POST() {
   const { userId } = await auth();
@@ -27,10 +28,13 @@ export async function POST() {
       });
     }
 
-    const subscriptions = await scanGmail(accessToken);
+    const fullScanUnlocked = await isDeepSearchUnlocked(hashIdentity(`user:${userId}`));
+    const subscriptions = await scanGmail(accessToken, fullScanUnlocked ? 50 : 12);
     return NextResponse.json({
       source: "gmail",
-      subscriptions: subscriptions.slice(0, 6),
+      subscriptions: fullScanUnlocked ? subscriptions : subscriptions.slice(0, 6),
+      unlocked: fullScanUnlocked,
+      totalFound: subscriptions.length,
       empty: subscriptions.length === 0
     });
   } catch (error) {
