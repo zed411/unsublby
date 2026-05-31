@@ -35,7 +35,8 @@ export function UnsublyApp({
   initialPaymentPending = false,
   authEnabled = false,
   signedInEmail = "",
-  isSignedIn = false
+  isSignedIn = false,
+  gmailConnected = false
 }: {
   initialDemoMode?: boolean;
   initialIdentity?: string;
@@ -44,6 +45,7 @@ export function UnsublyApp({
   authEnabled?: boolean;
   signedInEmail?: string;
   isSignedIn?: boolean;
+  gmailConnected?: boolean;
 }) {
   const startingIdentity = authEnabled
     ? signedInEmail
@@ -54,7 +56,9 @@ export function UnsublyApp({
       ? "Payment complete. Full Deep Search results unlocked."
       : initialPaymentPending
         ? "Payment received. Waiting for Stripe webhook confirmation, then refresh this page."
-        : "No messages are sent or searched in this demo."
+        : gmailConnected
+          ? "Gmail connected. Start a free scan when you're ready."
+          : "No scan has run yet."
   );
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(
@@ -63,7 +67,9 @@ export function UnsublyApp({
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState("");
   const [deepSearchUnlocked, setDeepSearchUnlocked] = useState(initialPaid);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [scanBusy, setScanBusy] = useState(false);
   const canRunRealScan = !authEnabled || isSignedIn;
+  const canScanConnectedEmail = canRunRealScan && gmailConnected;
   const activeIdentity = authEnabled ? signedInEmail : identity;
 
   const filteredSubscriptions = useMemo(() => {
@@ -85,19 +91,24 @@ export function UnsublyApp({
   const saved = subscriptions.filter((item) => item.saved).length;
   const removed = subscriptions.filter((item) => item.status === "removed").length;
 
-  function scanIdentity(value: string) {
+  function applyScanResults(value: string, results: Subscription[], hint: string) {
     setIdentity(value.trim());
-    setSubscriptions(createPreviewList());
+    setSubscriptions(results);
     setSelectedSubscriptionId("");
     setDeepSearchUnlocked(false);
     setActiveFilter("all");
-    setFormHint("Free scan complete. Review each item before removing it.");
+    setFormHint(hint);
   }
 
-  function handleScan(event: React.FormEvent<HTMLFormElement>) {
+  async function handleScan(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canRunRealScan && !initialDemoMode) {
       setFormHint("Sign in with the email you want to check, then start the free scan.");
+      return;
+    }
+
+    if (authEnabled && !gmailConnected && !initialDemoMode) {
+      setFormHint("Connect Gmail first so Unsubly can scan only your verified mailbox.");
       return;
     }
 
@@ -107,7 +118,29 @@ export function UnsublyApp({
       setFormHint("Enter a full email address or phone number to scan.");
       return;
     }
-    scanIdentity(scanValue);
+
+    if (!authEnabled || initialDemoMode) {
+      applyScanResults(scanValue, createPreviewList(), "Free scan complete. Review each item before removing it.");
+      return;
+    }
+
+    setScanBusy(true);
+    try {
+      const response = await fetch("/api/email/scan", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Email scan failed.");
+      applyScanResults(
+        scanValue,
+        payload.subscriptions,
+        payload.usedFallback
+          ? "Gmail connected, but no clear subscription signals were found yet. Showing sample results for now."
+          : "Gmail scan complete. Review each item before removing it."
+      );
+    } catch (error) {
+      setFormHint(error instanceof Error ? error.message : "Email scan failed.");
+    } finally {
+      setScanBusy(false);
+    }
   }
 
   function updateSubscription(id: string, updater: (subscription: Subscription) => Subscription) {
@@ -132,7 +165,7 @@ export function UnsublyApp({
     if (initialDemoMode) {
       setDeepSearchUnlocked(true);
       setSubscriptions(createFullList());
-      setFormHint("Demo payment complete. Full Deep Search results unlocked.");
+      setFormHint("Full Deep Search results unlocked.");
       return;
     }
 
@@ -157,14 +190,26 @@ export function UnsublyApp({
     }
   }
 
+  async function disconnectGmail() {
+    setScanBusy(true);
+    try {
+      await fetch("/api/email/google/disconnect", { method: "POST" });
+      window.location.href = "/?email=disconnected#scan";
+    } catch {
+      setFormHint("Gmail could not be disconnected. Try again.");
+      setScanBusy(false);
+    }
+  }
+
   function clearDemoData() {
     setIdentity(authEnabled ? signedInEmail : "");
-    setFormHint("No messages are sent or searched in this demo.");
+    setFormHint(gmailConnected ? "Gmail connected. Start a free scan when you're ready." : "No scan has run yet.");
     setActiveFilter("all");
     setSubscriptions([]);
     setSelectedSubscriptionId("");
     setDeepSearchUnlocked(false);
     setCheckoutBusy(false);
+    setScanBusy(false);
   }
 
   return (
@@ -190,11 +235,17 @@ export function UnsublyApp({
           <a className="nav-item" href="#privacy">
             Privacy
           </a>
+          <a className="nav-item" href="/privacy">
+            Privacy Policy
+          </a>
+          <a className="nav-item" href="/terms">
+            Terms
+          </a>
         </nav>
 
         <div className="privacy-note">
           <p className="note-title">Private by design</p>
-          <p>This demo stores results only in this browser. A live version would ask permission before reading email or SMS.</p>
+          <p>Unsubly scans connected accounts only after sign-in and explicit permission.</p>
         </div>
       </aside>
 
@@ -212,7 +263,7 @@ export function UnsublyApp({
               </button>
             )}
             <button className="ghost-button" type="button" onClick={clearDemoData}>
-              Clear Demo Data
+              Clear Results
             </button>
           </div>
         </section>
@@ -232,23 +283,36 @@ export function UnsublyApp({
             <h2 id="scanTitle">{authEnabled ? "Start your free scan" : "Start a scan"}</h2>
             <p>
               {authEnabled
-                ? "Use the same email you want checked when you sign in. Unsubly verifies that account and scans that email automatically."
-                : "Enter an email or phone number to preview how Unsubly would organize subscriptions. The demo uses sample results so you can test the workflow safely."}
+                ? "Sign in, connect Gmail with read-only permission, then Unsubly scans that verified mailbox for subscriptions and notifications."
+                : "Enter an email or phone number to preview how Unsubly would organize subscriptions. Sample results are used until account connections are enabled."}
             </p>
           </div>
 
           <form className="scan-form" onSubmit={handleScan}>
             {authEnabled ? (
               <>
-                <label>Verified email</label>
+                <label>{gmailConnected ? "Connected email" : "Email connection"}</label>
                 <div className="input-row verified-scan-row">
                   {(canRunRealScan || initialDemoMode) && <div className="verified-email-box">{activeIdentity || "demo@example.com"}</div>}
-                  {canRunRealScan || initialDemoMode ? (
-                    <button type="submit">Start Free Scan</button>
-                  ) : (
+                  {!canRunRealScan && !initialDemoMode ? (
                     <SignInButton mode="modal">
                       <button type="button">Sign In To Scan</button>
                     </SignInButton>
+                  ) : !gmailConnected && !initialDemoMode ? (
+                    <a className="connect-button" href="/api/email/google/start">
+                      Connect Gmail
+                    </a>
+                  ) : (
+                    <>
+                      <button type="submit" disabled={scanBusy}>
+                        {scanBusy ? "Scanning..." : canScanConnectedEmail ? "Start Free Scan" : "Start Sample Scan"}
+                      </button>
+                      {gmailConnected && (
+                        <button className="quiet-button" type="button" onClick={disconnectGmail}>
+                          Disconnect
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </>

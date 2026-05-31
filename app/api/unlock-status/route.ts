@@ -9,5 +9,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ unlocked: false });
   }
 
-  return NextResponse.json({ unlocked: isDeepSearchUnlocked(hashIdentity(identity)) });
+  return NextResponse.json({ unlocked: await isDeepSearchUnlocked(hashIdentity(identity)) });
 }

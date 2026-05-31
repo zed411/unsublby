@@ -1,7 +1,27 @@
 import { markDeepSearchUnlocked } from "./db";
 import { getAppUrl, hashIdentity, sanitizeReferenceId } from "./security";
 
-export async function createCheckoutSession(identity: unknown) {
+type CheckoutInput = {
+  identity: unknown;
+  unlockSubject?: string;
+  includeIdentityInSuccess?: boolean;
+};
+
+function normalizeCheckoutInput(input: unknown | CheckoutInput) {
+  if (typeof input === "object" && input !== null && "identity" in input) {
+    const checkoutInput = input as CheckoutInput;
+    return {
+      identityValue: sanitizeReferenceId(checkoutInput.identity),
+      unlockSubject: checkoutInput.unlockSubject || sanitizeReferenceId(checkoutInput.identity),
+      includeIdentityInSuccess: checkoutInput.includeIdentityInSuccess ?? true
+    };
+  }
+
+  const identityValue = sanitizeReferenceId(input);
+  return { identityValue, unlockSubject: identityValue, includeIdentityInSuccess: true };
+}
+
+export async function createCheckoutSession(input: unknown | CheckoutInput) {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
   const priceId = process.env.STRIPE_PRICE_ID?.trim();
 
@@ -33,11 +53,20 @@ export async function createCheckoutSession(identity: unknown) {
   }
 
   const appUrl = getAppUrl();
-  const identityValue = sanitizeReferenceId(identity);
-  const identityHash = hashIdentity(identityValue);
+  const { identityValue, unlockSubject, includeIdentityInSuccess } = normalizeCheckoutInput(input);
+  const identityHash = hashIdentity(unlockSubject);
+  const successParams = new URLSearchParams({
+    payment: "success",
+    session_id: "{CHECKOUT_SESSION_ID}"
+  });
+
+  if (includeIdentityInSuccess) {
+    successParams.set("identity", identityValue);
+  }
+
   const form = new URLSearchParams({
     mode: "payment",
-    success_url: `${appUrl}/?identity=${encodeURIComponent(identityValue)}&payment=success&session_id={CHECKOUT_SESSION_ID}#scan`,
+    success_url: `${appUrl}/?${successParams.toString()}#scan`,
     cancel_url: `${appUrl}/?payment=cancelled#scan`,
     client_reference_id: identityHash,
     "line_items[0][price]": priceId,
@@ -92,7 +121,7 @@ export async function verifyAndFulfillCheckoutSession(sessionId: string) {
     metadata.identity_hash &&
     metadata.identity_hint
   ) {
-    markDeepSearchUnlocked(metadata.identity_hash, metadata.identity_hint, session.id);
+    await markDeepSearchUnlocked(metadata.identity_hash, metadata.identity_hint, session.id);
     return true;
   }
 

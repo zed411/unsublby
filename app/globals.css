@@ -211,6 +211,41 @@ button {
   background: var(--soft);
 }
 
+.legal-page {
+  min-height: 100vh;
+  padding: 34px;
+}
+
+.legal-card {
+  max-width: 860px;
+  display: grid;
+  gap: 16px;
+  margin: 0 auto;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.legal-card h1 {
+  font-size: clamp(2rem, 5vw, 3.6rem);
+}
+
+.legal-card h2 {
+  margin-top: 10px;
+}
+
+.legal-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.legal-updated {
+  font-weight: 800;
+}
+
 .eyebrow {
   color: var(--mint-strong);
   font-size: 0.78rem;
@@ -286,6 +321,18 @@ h3 {
   gap: 10px;
 }
 
+.verified-scan-row:has(button:only-child) {
+  grid-template-columns: minmax(180px, max-content);
+}
+
+.verified-scan-row:has(.connect-button) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.verified-scan-row:has(.quiet-button) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
 .input-row input {
   width: 100%;
   min-height: 48px;
@@ -296,15 +343,47 @@ h3 {
   background: #fff;
 }
 
+.verified-email-box {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 14px;
+  color: var(--ink);
+  background: #fff;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .input-row input:focus {
   outline: 3px solid rgba(17, 128, 77, 0.18);
   border-color: var(--mint-strong);
 }
 
 .input-row button,
-.secondary-button {
+.secondary-button,
+.connect-button {
   background: var(--ink);
   color: #fff;
+}
+
+.input-row button.quiet-button {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.connect-button {
+  min-height: 48px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .secondary-button:disabled {

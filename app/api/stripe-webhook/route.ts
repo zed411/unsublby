@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const stripeSessionId = event.data.object.id || event.data.object.client_reference_id || identityHash;
 
     if (identityHash) {
-      markDeepSearchUnlocked(identityHash, identityHint, stripeSessionId);
+      await markDeepSearchUnlocked(identityHash, identityHint, stripeSessionId);
     }
   }
 

@@ -1,0 +1,10 @@
+.next/
+node_modules/
+.env
+.env.local
+*.log
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+tsconfig.tsbuildinfo
