@@ -37,6 +37,16 @@ it over `http(s)://` rather than `file://` so the PDF.js web worker can load.
 - Measure **length** (polyline) and **area** (polygon); labels update live
 - Running takeoff totals in the Markups panel
 
+**Assisted auto-takeoff** (Markups panel → Auto-takeoff assist)
+- **Analyze** — reports pages, text volume, detected scale, and whether the PDF
+  is a scanned image (no text layer → auto tools can't read it)
+- **Auto-scale** — detects a `1:NN` ratio in the drawing text and sets the
+  measurement calibration for you (verify against a known dimension)
+- **Find & count** — type a tag (e.g. `GPO`, `D01`) and it drops a count marker
+  on every text match across all pages, tagged for pricing
+- These read the PDF's real text layer only — they never invent quantities, and
+  everything they place is yours to review before trusting
+
 **Markups list**
 - Every markup tracked with page, type, subject, author and status
   (open / accepted / rejected / completed — right-click a row to cycle)
@@ -79,7 +89,18 @@ rate library and prices your markups live.
 4. Maintain the **Rate Library** (add/edit rates, or **Import**/**Export** CSV with
    columns `Code, Trade, Description, Unit, Rate`).
 5. The **Estimate** panel groups priced markups by trade, subtotals each trade,
-   and shows a grand total. **Export CSV** for a full estimate sheet.
+   and shows a grand total.
+
+### Getting the estimate into Google Sheets
+
+Two one-click paths in the Estimate tab:
+- **Copy for Sheets** — copies the estimate as tab-separated text. Open a Google
+  Sheet, click cell **A1**, paste — the grid fills in directly, no import step.
+- **Export CSV** — download a `.csv`, then in Google Drive: *New → File upload*,
+  or in a Sheet: *File → Import → Upload*.
+
+Review the numbers, plug in your real rates, then share the Sheet with your
+builder.
 
 Pricing only matches a markup to a rate when their **units are dimensionally
 compatible** (count↔`ea`, length↔`m`, area↔`m2`), so a measured length is never
@@ -118,7 +139,8 @@ markup-studio/
   js/tools.js         # tool rail + pointer interaction
   js/markuplist.js    # markups list, filtering, CSV, takeoff totals
   js/workflows.js     # presets, checklist, saved workflows
-  js/pricing.js       # rate library + live cost estimate rollup
+  js/pricing.js       # rate library + live cost estimate rollup + Sheets copy
+  js/analyze.js       # assisted auto-takeoff (scale detect, find & count)
   js/export.js        # .mstudio save/load + flattened PDF export
   js/main.js          # bootstrap + UI wiring
 ```
