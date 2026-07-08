@@ -1,0 +1,51 @@
+Section,Item,Unit,Rate,Notes
+Labour,Labour rate,hr,100,8-hour minimum per attendance
+Supply,Concrete supply 25 MPa,m3,239,free-issued by others unless quoted
+Supply,Concrete supply 32 MPa (N32),m3,246,free-issued by others unless quoted
+Supply,Concrete supply 40 MPa (N40),m3,258,free-issued by others unless quoted
+Supply,Concrete supply S40 high-early,m3,284,verify w/ supplier
+Supply,Concrete supply 50 MPa,m3,284,
+Supply,Concrete testing (1 test / 50 m3),test,450,
+Place,Footings / ground beams,m3,80,
+Place,Slab on ground 120mm,m2,40,150mm+ = 55
+Place,External/civil SOG,m2,55,
+Place,In-situ walls,m3,250,
+Place,Columns,m3,300,
+Place,Stairs,m3,500,
+Place,Suspended slab (any thk),m2,55,
+Place,Bench seating,m2,150,
+Place,Hobs,lm,100,
+Reinforcement,Reo install,t,1500,
+Reinforcement,Reo supply,t,2605.53,EXCLUDED by default
+Reinforcement,Mesh install (any SL),m2,10,
+Reinforcement,Mesh supply SL82,m2,9.86,
+Reinforcement,Mesh supply SL92,m2,12.32,
+Pump,Metres through line incl. wastage,m3,15,
+Pump,Pump hire,hr,300,4-hour minimum
+Pump,Pump travel time,hr,300,1 hr per visit
+Pump,Slurry,visit,12,
+Pump,Off-site washout,visit,350,
+Formwork,SOG edge board,lm,35,
+Formwork,Hob / rebate / step-down,lm,55,
+Formwork,Suspended soffit (0-5.2m flat),m2,104.8,
+Formwork,Wall forms (0-3.6m both faces measured),m2,156.8,
+Formwork,Column forms,m2,160,
+Finishing,DPM membrane supply & install,m2,5,x SOG area
+Finishing,Concrete curing,m2,2,x all slab area
+Finishing,Joints allowance per m2 SOG,m2,18,saw/exp/dowel/iso
+Excavation,Detailed excavation - footings,m3,120,
+Excavation,Spoil removal incl. 20% bulking,m3,180,
+Excavation,Subgrade prep + 50mm bedding sand,m2,15,
+Plant,Skid Steer,hr,149.99,min 4 hr + 1 hr travel
+Plant,Posi Track,hr,149.99,min 4 hr + 1 hr travel
+Plant,Roller 1.5T,hr,139.99,min 4 hr + 1 hr travel
+Plant,Tipper 16T,hr,165,min 4 hr + 1 hr travel
+Plant,Excavator 1.8-3T,hr,149.99,min 4 hr + 1 hr travel
+Plant,Excavator 5-8.5T,hr,149.99,min 4 hr + 1 hr travel
+Plant,Excavator 14T,hr,169.99,min 4 hr + 1 hr travel
+Plant,450mm Auger,hr,25.99,
+Plant,600mm Auger,hr,38.99,
+Plant,Auger extension 1m,hr,25.99,
+Plant,Rock Breaker,hr,100,
+Terms,All rates ex GST; labour-only unless noted,,,supply free-issued unless quoted
+Terms,Schedule issued 03/07/2026; valid 30 days,,,review before issuing
