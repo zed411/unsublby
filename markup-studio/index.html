@@ -97,6 +97,20 @@
         </div>
 
         <section class="tabpanel active" data-panel="markups">
+          <div class="auto-box">
+            <div class="auto-head">
+              <span>Auto-takeoff assist</span>
+              <button class="btn btn-sm" id="btn-analyze" title="Analyze the PDF">Analyze</button>
+            </div>
+            <div class="auto-row">
+              <input type="text" id="find-term" placeholder="Tag to find & count (e.g. GPO, D01)" />
+              <button class="btn btn-sm" id="btn-find-count" title="Drop a count marker on every text match">Count</button>
+            </div>
+            <div class="auto-actions">
+              <button class="btn btn-sm" id="btn-auto-scale" title="Detect drawing scale from the sheet">Auto-scale</button>
+              <span class="auto-note" id="auto-note">Works on vector PDFs (not scanned images).</span>
+            </div>
+          </div>
           <div class="list-toolbar">
             <select id="filter-status" title="Filter by status">
               <option value="all">All statuses</option>
@@ -135,7 +149,10 @@
             <div class="wf-section">
               <div class="wf-head">
                 <h3>Estimate</h3>
-                <button class="btn btn-sm" id="btn-est-export" title="Export estimate to CSV">Export CSV</button>
+                <div class="est-lib-actions">
+                  <button class="btn btn-sm" id="btn-est-copy" title="Copy the estimate — paste straight into Google Sheets (cell A1)">Copy for Sheets</button>
+                  <button class="btn btn-sm" id="btn-est-export" title="Export estimate to CSV">Export CSV</button>
+                </div>
               </div>
               <div class="est-table" id="est-table"></div>
             </div>
@@ -216,6 +233,7 @@
   <script src="js/markuplist.js"></script>
   <script src="js/workflows.js"></script>
   <script src="js/pricing.js"></script>
+  <script src="js/analyze.js"></script>
   <script src="js/export.js"></script>
   <script src="js/main.js"></script>
 </body>

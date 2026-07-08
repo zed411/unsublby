@@ -27,6 +27,7 @@
     wireTabs();
     wireKeys();
     wireTextPopover();
+    wireAnalyze();
     syncProps();
     V.updateChrome();
   }
@@ -153,6 +154,43 @@
       else if (e.key === "+" || e.key === "=") V.zoomIn();
       else if (e.key === "-") V.zoomOut();
     });
+  }
+
+  function wireAnalyze() {
+    const note = $("auto-note");
+    const needDoc = () => { if (!S.pdfDoc) { note.textContent = "Open a PDF first."; return true; } return false; };
+
+    $("btn-analyze").addEventListener("click", async () => {
+      if (needDoc()) return;
+      note.textContent = "Analyzing…";
+      const r = await MS.analyze.report();
+      if (r.likelyScanned) {
+        note.textContent = "This looks like a scanned image (no text layer) — auto tools can't read it. Mark it up manually.";
+      } else {
+        note.textContent = `${r.pages} page(s), ${r.textItems} text items` +
+          (r.scale ? ` · scale ${"1:" + r.scale.ratio} detected` : " · no scale text found");
+      }
+    });
+
+    $("btn-auto-scale").addEventListener("click", async () => {
+      if (needDoc()) return;
+      note.textContent = "Detecting scale…";
+      const r = await MS.analyze.applyAutoScale();
+      note.textContent = r.ok ? `Scale set from “${r.raw}” (1:${r.ratio}). Verify against a known dimension.`
+        : "No “1:NN” scale text found — use the Calibrate tool instead.";
+    });
+
+    const doCount = async () => {
+      if (needDoc()) return;
+      const term = $("find-term").value.trim();
+      if (!term) { note.textContent = "Type a tag to find."; return; }
+      note.textContent = `Finding “${term}”…`;
+      const r = await MS.analyze.findAndCount(term);
+      note.textContent = r.ok ? `Placed ${r.count} “${term}” marker(s). Review, then price via the Estimate tab.`
+        : "Nothing to count.";
+    };
+    $("btn-find-count").addEventListener("click", doCount);
+    $("find-term").addEventListener("keydown", (e) => { if (e.key === "Enter") doCount(); });
   }
 
   function wireTextPopover() {

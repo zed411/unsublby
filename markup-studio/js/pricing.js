@@ -107,6 +107,7 @@
     document.getElementById("btn-rate-import").addEventListener("click", () => document.getElementById("rate-import-input").click());
     document.getElementById("rate-import-input").addEventListener("change", importRates);
     document.getElementById("btn-est-export").addEventListener("click", exportEstimate);
+    document.getElementById("btn-est-copy").addEventListener("click", copyForSheets);
     document.getElementById("est-project").addEventListener("input", (e) => { S.estimateName = e.target.value; });
     MS.on("annots-changed", P.renderEstimate);
     MS.on("doc-loaded", P.renderEstimate);
@@ -212,6 +213,28 @@
     };
     rd.readAsText(f); e.target.value = "";
   }
+  // Build a tab-separated estimate and copy it — pasting into Google Sheets
+  // cell A1 fills the grid directly, no import step.
+  function copyForSheets() {
+    const est = P.build();
+    const rows = [["Trade", "Code", "Description", "Quantity", "Unit", "Rate", "Amount"]];
+    est.list.forEach((L) => rows.push([L.trade, L.rate.code, L.desc, MS.round(L.qty, 3), L.unit, +L.rate.rate, MS.round(L.amount, 2)]));
+    rows.push([]);
+    rows.push(["", "", "", "", "", "TOTAL", MS.round(est.total, 2)]);
+    const tsv = rows.map((r) => r.map((v) => String(v == null ? "" : v).replace(/\t|\n/g, " ")).join("\t")).join("\n");
+    const btn = document.getElementById("btn-est-copy");
+    const done = () => { btn.textContent = "Copied ✓"; setTimeout(() => (btn.textContent = "Copy for Sheets"), 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => fallbackCopy(tsv, done));
+    else fallbackCopy(tsv, done);
+  }
+  function fallbackCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { alert("Copy failed — use Export CSV."); }
+    ta.remove();
+  }
+
   function exportEstimate() {
     const est = P.build();
     const head = ["Trade", "Code", "Description", "Quantity", "Unit", "Rate", "Amount"];
