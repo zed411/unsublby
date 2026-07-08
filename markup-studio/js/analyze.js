@@ -38,14 +38,30 @@
   // ---- scale detection: look for "1:100" style ratios in the text ----
   N.detectScale = async function () {
     const pages = await N.allText();
-    const re = /\b1\s*[:：]\s*(\d{1,4})\b/;
+    // Only trust ratios that are standard architectural/engineering scales, and
+    // reject anything that is really part of a longer number (e.g. "1:10,890").
+    const STD = new Set([1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 200, 250, 500, 1000, 1250, 2500, 5000]);
+    const re = /(?:^|[^\d.,])1\s*[:：]\s*(\d{1,4})(?![\d.,])/g;
+    const tally = {};
+    let firstRaw = null;
     for (const p of pages) {
-      for (const it of p.items) {
-        const m = it.str.match(re);
-        if (m) return { ratio: parseInt(m[1], 10), raw: it.str.trim(), page: p.page };
+      // join items so a scale split across text runs ("1" ":" "100") still matches
+      const joined = p.items.map((i) => i.str).join(" ");
+      let m;
+      re.lastIndex = 0;
+      while ((m = re.exec(joined))) {
+        const n = parseInt(m[1], 10);
+        if (STD.has(n) && n >= 5) {
+          tally[n] = (tally[n] || 0) + 1;
+          if (!firstRaw) firstRaw = { raw: `1:${n}`, page: p.page };
+        }
       }
     }
-    return null;
+    const keys = Object.keys(tally);
+    if (!keys.length) return null;
+    keys.sort((a, b) => tally[b] - tally[a]); // most frequent standard scale wins
+    const ratio = parseInt(keys[0], 10);
+    return { ratio, raw: firstRaw ? firstRaw.raw : `1:${ratio}`, page: firstRaw ? firstRaw.page : 1, candidates: tally };
   };
 
   // At scale 1:R, a length of L paper-points equals L * (25.4/72) mm on paper,
