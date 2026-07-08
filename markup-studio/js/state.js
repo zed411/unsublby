@@ -8,7 +8,10 @@
 
   // ---- Configure the PDF.js worker (must run before any getDocument call) ----
   if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "lib/pdf.worker.min.js";
+    // Prefer a blob URL when running as a single inlined file (artifact/standalone),
+    // otherwise load the vendored worker file relatively.
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      window.__pdfWorkerBlobUrl || "lib/pdf.worker.min.js";
   }
 
   MS.PALETTE = [

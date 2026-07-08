@@ -13,7 +13,16 @@ written from scratch in this repo.
 
 ## Run it
 
-It's a static site — no build step.
+### Easiest: the single-file build
+
+`standalone.html` bundles the entire app (styles, code, and the PDF.js /
+pdf-lib libraries) into one self-contained file. **Just double-click it** — it
+opens in your browser and works offline, no server needed. Rebuild it with
+`node vendor/build-standalone.js` after changing any source file.
+
+### As a static site
+
+It's also a plain static site — no build step.
 
 ```bash
 cd markup-studio
