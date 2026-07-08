@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markup Studio — PDF Markups & Custom Workflows</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f8cff'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='white'%3E%E2%97%88%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◈</span>
+        <span class="brand-name">Markup Studio</span>
+      </div>
+
+      <div class="topbar-actions">
+        <label class="btn btn-primary" title="Open a PDF">
+          <input type="file" id="file-input" accept="application/pdf" hidden />
+          Open PDF
+        </label>
+        <button class="btn" id="btn-save-json" title="Save markups to a .mstudio file" disabled>Save</button>
+        <label class="btn" title="Load a saved .mstudio file">
+          <input type="file" id="load-input" accept=".mstudio,.json" hidden />
+          Load
+        </label>
+        <button class="btn" id="btn-export-pdf" title="Export a flattened PDF with markups burned in" disabled>Export PDF</button>
+        <div class="topbar-spacer"></div>
+        <div class="doc-title" id="doc-title">No document</div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <!-- Left tool rail -->
+      <nav class="toolrail" id="toolrail" aria-label="Markup tools">
+        <!-- populated by tools.js -->
+      </nav>
+
+      <!-- Tool properties bar -->
+      <aside class="properties" id="properties">
+        <div class="prop-group">
+          <span class="prop-label">Color</span>
+          <div class="swatches" id="color-swatches"></div>
+          <input type="color" id="color-picker" value="#e11d48" title="Custom color" />
+        </div>
+        <div class="prop-group">
+          <span class="prop-label">Line</span>
+          <input type="range" id="stroke-range" min="0.5" max="12" step="0.5" value="2" />
+          <span class="prop-value" id="stroke-value">2.0</span>
+        </div>
+        <div class="prop-group">
+          <span class="prop-label">Fill</span>
+          <label class="check"><input type="checkbox" id="fill-toggle" /> On</label>
+          <input type="range" id="opacity-range" min="0" max="1" step="0.05" value="0.25" title="Fill / highlight opacity" />
+        </div>
+        <div class="prop-group">
+          <span class="prop-label">Font</span>
+          <input type="range" id="font-range" min="6" max="48" step="1" value="14" />
+          <span class="prop-value" id="font-value">14</span>
+        </div>
+        <div class="prop-group prop-grow">
+          <span class="prop-label">Subject</span>
+          <input type="text" id="subject-input" placeholder="e.g. Electrical" />
+        </div>
+      </aside>
+
+      <!-- Document canvas -->
+      <main class="viewer" id="viewer">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-card">
+            <div class="empty-icon">◈</div>
+            <h1>Markup Studio</h1>
+            <p>Open a PDF to start marking it up. Drag &amp; drop a file anywhere, or use <strong>Open PDF</strong>.</p>
+            <label class="btn btn-primary btn-lg">
+              <input type="file" id="file-input-2" accept="application/pdf" hidden />
+              Open a PDF
+            </label>
+            <ul class="empty-tips">
+              <li>Draw rectangles, clouds, arrows, text, callouts &amp; freehand ink</li>
+              <li>Measure lengths &amp; areas after a one-click calibration</li>
+              <li>Track every markup in the list, filter by status, export to CSV</li>
+              <li>Build custom tool-chest workflows and reuse them across drawings</li>
+            </ul>
+          </div>
+        </div>
+        <div class="pages" id="pages"></div>
+      </main>
+
+      <!-- Right panel: markups list + workflows -->
+      <aside class="sidepanel" id="sidepanel">
+        <div class="tabs">
+          <button class="tab active" data-tab="markups">Markups</button>
+          <button class="tab" data-tab="estimate">Estimate</button>
+          <button class="tab" data-tab="workflows">Workflows</button>
+        </div>
+
+        <section class="tabpanel active" data-panel="markups">
+          <div class="auto-box">
+            <div class="auto-head">
+              <span>Auto-takeoff assist</span>
+              <button class="btn btn-sm" id="btn-analyze" title="Analyze the PDF">Analyze</button>
+            </div>
+            <div class="auto-row">
+              <input type="text" id="find-term" placeholder="Tag to find & count (e.g. GPO, D01)" />
+              <button class="btn btn-sm" id="btn-find-count" title="Drop a count marker on every text match">Count</button>
+            </div>
+            <div class="auto-actions">
+              <button class="btn btn-sm" id="btn-auto-scale" title="Detect drawing scale from the sheet">Auto-scale</button>
+              <span class="auto-note" id="auto-note">Works on vector PDFs (not scanned images).</span>
+            </div>
+          </div>
+          <div class="list-toolbar">
+            <select id="filter-status" title="Filter by status">
+              <option value="all">All statuses</option>
+              <option value="none">Open</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+              <option value="completed">Completed</option>
+            </select>
+            <button class="btn btn-sm" id="btn-export-csv" title="Export markups list to CSV">CSV</button>
+          </div>
+          <div class="markup-list" id="markup-list">
+            <div class="list-empty">No markups yet.</div>
+          </div>
+          <div class="list-summary" id="list-summary"></div>
+        </section>
+
+        <section class="tabpanel" data-panel="estimate">
+          <div class="est-toolbar">
+            <input type="text" id="est-project" placeholder="Project / estimate name" />
+          </div>
+          <div class="est-scroll">
+            <div class="wf-section">
+              <div class="wf-head">
+                <h3>Rate Library</h3>
+                <div class="est-lib-actions">
+                  <button class="btn btn-sm" id="btn-rate-add" title="Add a rate">+ Rate</button>
+                  <button class="btn btn-sm" id="btn-rate-import" title="Import rates from CSV">Import</button>
+                  <button class="btn btn-sm" id="btn-rate-export" title="Export rate library to CSV">Export</button>
+                </div>
+              </div>
+              <div class="rate-hint">Markups are priced by matching their <strong>Subject</strong> to a rate's <strong>Code</strong> or <strong>Trade</strong>. Units: <code>ea</code> (counts/shapes), <code>m</code> (length), <code>m2</code> (area).</div>
+              <div class="rate-list" id="rate-list"></div>
+              <input type="file" id="rate-import-input" accept=".csv" hidden />
+            </div>
+
+            <div class="wf-section">
+              <div class="wf-head">
+                <h3>Estimate</h3>
+                <div class="est-lib-actions">
+                  <button class="btn btn-sm" id="btn-est-copy" title="Copy the estimate — paste straight into Google Sheets (cell A1)">Copy for Sheets</button>
+                  <button class="btn btn-sm" id="btn-est-export" title="Export estimate to CSV">Export CSV</button>
+                </div>
+              </div>
+              <div class="est-table" id="est-table"></div>
+            </div>
+          </div>
+          <div class="est-total" id="est-total"></div>
+        </section>
+
+        <section class="tabpanel" data-panel="workflows">
+          <div class="wf-intro">
+            Workflows bundle a <strong>tool chest</strong> of presets and a
+            <strong>checklist</strong> you run against each drawing.
+          </div>
+          <div class="wf-section">
+            <div class="wf-head">
+              <h3>Tool Chest</h3>
+              <button class="btn btn-sm" id="btn-add-preset" title="Save current tool settings as a preset">+ Preset</button>
+            </div>
+            <div class="preset-list" id="preset-list"></div>
+          </div>
+          <div class="wf-section">
+            <div class="wf-head">
+              <h3>Checklist</h3>
+              <button class="btn btn-sm" id="btn-add-step">+ Step</button>
+            </div>
+            <div class="checklist" id="checklist"></div>
+            <div class="wf-progress"><div class="wf-progress-bar" id="wf-progress-bar"></div></div>
+          </div>
+          <div class="wf-section">
+            <div class="wf-head">
+              <h3>Saved Workflows</h3>
+              <button class="btn btn-sm" id="btn-save-wf">Save current</button>
+            </div>
+            <div class="wf-list" id="wf-list"></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <!-- Bottom status bar -->
+    <footer class="statusbar">
+      <div class="status-left">
+        <button class="btn btn-icon" id="btn-prev" title="Previous page" disabled>‹</button>
+        <span class="page-indicator"><span id="page-current">0</span> / <span id="page-total">0</span></span>
+        <button class="btn btn-icon" id="btn-next" title="Next page" disabled>›</button>
+      </div>
+      <div class="status-center" id="active-tool-name">Select</div>
+      <div class="status-right">
+        <button class="btn btn-icon" id="btn-zoom-out" title="Zoom out">−</button>
+        <span class="zoom-indicator" id="zoom-indicator">100%</span>
+        <button class="btn btn-icon" id="btn-zoom-in" title="Zoom in">+</button>
+        <button class="btn btn-sm" id="btn-fit-width" title="Fit width">Fit</button>
+        <span class="calib-indicator" id="calib-indicator" title="Measurement calibration">Uncalibrated</span>
+      </div>
+    </footer>
+
+    <!-- Drop overlay -->
+    <div class="drop-overlay" id="drop-overlay"><div class="drop-inner">Drop PDF to open</div></div>
+
+    <!-- Text edit popover -->
+    <div class="text-popover" id="text-popover" hidden>
+      <textarea id="text-popover-input" placeholder="Type note…" rows="3"></textarea>
+      <div class="text-popover-actions">
+        <button class="btn btn-sm" id="text-popover-cancel">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="text-popover-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Third-party rendering/export libs (open source, vendored locally) -->
+  <script src="lib/pdf.min.js"></script>
+  <script src="lib/pdf-lib.min.js"></script>
+
+  <!-- App code -->
+  <script src="js/state.js"></script>
+  <script src="js/viewer.js"></script>
+  <script src="js/annotations.js"></script>
+  <script src="js/tools.js"></script>
+  <script src="js/markuplist.js"></script>
+  <script src="js/workflows.js"></script>
+  <script src="js/pricing.js"></script>
+  <script src="js/analyze.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

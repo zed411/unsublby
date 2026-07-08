@@ -1,0 +1,15 @@
+const http=require("http"),fs=require("fs"),path=require("path");
+const {chromium}=require("playwright-core");
+const ROOT=path.resolve(__dirname,"..");
+const MIME={".html":"text/html",".css":"text/css",".js":"text/javascript",".pdf":"application/pdf"};
+const server=http.createServer((req,res)=>{let p=decodeURIComponent(req.url.split("?")[0]);if(p==="/")p="/index.html";const f=path.join(ROOT,p);if(!f.startsWith(ROOT)||!fs.existsSync(f)){res.writeHead(404);return res.end();}res.writeHead(200,{"Content-Type":MIME[path.extname(f)]||"application/octet-stream"});fs.createReadStream(f).pipe(res);});
+(async()=>{await new Promise(r=>server.listen(0,r));const base=`http://127.0.0.1:${server.address().port}`;
+const br=await chromium.launch({executablePath:"/opt/pw-browsers/chromium-1194/chrome-linux/chrome",args:["--headless=new","--no-sandbox"]});
+const page=await br.newPage({viewport:{width:1360,height:860}});await page.goto(base,{waitUntil:"networkidle"});
+const buf=fs.readFileSync("/tmp/claude-0/-home-user/727cf07f-47b4-5036-aaaf-34befe0e2c86/scratchpad/plan.pdf");
+await page.setInputFiles("#file-input",{name:"Ground-Floor-Plan.pdf",mimeType:"application/pdf",buffer:buf});
+await page.waitForSelector(".page-wrap canvas");
+await page.click("#btn-auto-scale");await page.waitForTimeout(150);
+await page.fill("#find-term","GPO");await page.click("#btn-find-count");await page.waitForTimeout(250);
+await page.screenshot({path:"/tmp/claude-0/-home-user/727cf07f-47b4-5036-aaaf-34befe0e2c86/scratchpad/markup-studio-auto.png"});
+await br.close();server.close();console.log("auto shot saved");})();
