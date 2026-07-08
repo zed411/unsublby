@@ -19,6 +19,7 @@
     T.attach();
     MS.list.init();
     MS.workflows.init();
+    MS.pricing.init();
     buildSwatches();
     wireProps();
     wireFiles();

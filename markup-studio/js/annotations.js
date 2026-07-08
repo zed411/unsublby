@@ -200,8 +200,32 @@
         drawStamp(g, a);
         break;
       }
+      case "count": {
+        drawCount(g, a);
+        break;
+      }
     }
     return g;
+  }
+
+  // A count marker shows its running number within its subject group
+  A.countIndex = function (a) {
+    const group = S.annotations.filter((x) => x.type === "count" && (x.subject || "") === (a.subject || ""));
+    return group.indexOf(a) + 1;
+  };
+  function drawCount(g, a) {
+    const r = a.rect;
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = r.w / 2;
+    g.appendChild(el("circle", {
+      cx, cy, r: rad, fill: a.color, "fill-opacity": 0.9,
+      stroke: "#ffffff", "stroke-width": 1.2, "vector-effect": "non-scaling-stroke",
+    }));
+    const t = el("text", {
+      x: cx, y: cy + rad * 0.35, "text-anchor": "middle",
+      "font-size": rad * 1.1, fill: "#ffffff", "font-family": "sans-serif", "font-weight": "700",
+    });
+    t.textContent = String(A.countIndex(a));
+    g.appendChild(t);
   }
 
   // ---- geometry helpers ----

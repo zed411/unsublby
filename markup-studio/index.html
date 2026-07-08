@@ -92,6 +92,7 @@
       <aside class="sidepanel" id="sidepanel">
         <div class="tabs">
           <button class="tab active" data-tab="markups">Markups</button>
+          <button class="tab" data-tab="estimate">Estimate</button>
           <button class="tab" data-tab="workflows">Workflows</button>
         </div>
 
@@ -110,6 +111,36 @@
             <div class="list-empty">No markups yet.</div>
           </div>
           <div class="list-summary" id="list-summary"></div>
+        </section>
+
+        <section class="tabpanel" data-panel="estimate">
+          <div class="est-toolbar">
+            <input type="text" id="est-project" placeholder="Project / estimate name" />
+          </div>
+          <div class="est-scroll">
+            <div class="wf-section">
+              <div class="wf-head">
+                <h3>Rate Library</h3>
+                <div class="est-lib-actions">
+                  <button class="btn btn-sm" id="btn-rate-add" title="Add a rate">+ Rate</button>
+                  <button class="btn btn-sm" id="btn-rate-import" title="Import rates from CSV">Import</button>
+                  <button class="btn btn-sm" id="btn-rate-export" title="Export rate library to CSV">Export</button>
+                </div>
+              </div>
+              <div class="rate-hint">Markups are priced by matching their <strong>Subject</strong> to a rate's <strong>Code</strong> or <strong>Trade</strong>. Units: <code>ea</code> (counts/shapes), <code>m</code> (length), <code>m2</code> (area).</div>
+              <div class="rate-list" id="rate-list"></div>
+              <input type="file" id="rate-import-input" accept=".csv" hidden />
+            </div>
+
+            <div class="wf-section">
+              <div class="wf-head">
+                <h3>Estimate</h3>
+                <button class="btn btn-sm" id="btn-est-export" title="Export estimate to CSV">Export CSV</button>
+              </div>
+              <div class="est-table" id="est-table"></div>
+            </div>
+          </div>
+          <div class="est-total" id="est-total"></div>
         </section>
 
         <section class="tabpanel" data-panel="workflows">
@@ -184,6 +215,7 @@
   <script src="js/tools.js"></script>
   <script src="js/markuplist.js"></script>
   <script src="js/workflows.js"></script>
+  <script src="js/pricing.js"></script>
   <script src="js/export.js"></script>
   <script src="js/main.js"></script>
 </body>

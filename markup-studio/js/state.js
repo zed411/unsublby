@@ -54,6 +54,9 @@
     checklist: [],
     workflows: [],
 
+    rates: [],             // rate library: {id, code, trade, desc, unit, rate}
+    estimateName: "",
+
     dirty: false,
   };
 
@@ -106,6 +109,7 @@
     try {
       localStorage.setItem("ms_presets", JSON.stringify(MS.state.presets));
       localStorage.setItem("ms_workflows", JSON.stringify(MS.state.workflows));
+      localStorage.setItem("ms_rates", JSON.stringify(MS.state.rates));
       localStorage.setItem("ms_author", MS.state.author);
     } catch (e) { /* storage may be unavailable */ }
   };
@@ -113,9 +117,11 @@
     try {
       MS.state.presets = JSON.parse(localStorage.getItem("ms_presets") || "[]");
       MS.state.workflows = JSON.parse(localStorage.getItem("ms_workflows") || "[]");
+      MS.state.rates = JSON.parse(localStorage.getItem("ms_rates") || "[]");
     } catch (e) {
       MS.state.presets = [];
       MS.state.workflows = [];
+      MS.state.rates = [];
     }
   };
 })();

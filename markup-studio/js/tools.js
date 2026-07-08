@@ -23,6 +23,7 @@
     { id: "text", name: "Text box", icon: "M5 5h14M12 5v14", kind: "rect", after: "text" },
     { id: "callout", name: "Callout", icon: "M4 5h16v10H10l-4 4v-4H4z", kind: "callout" },
     { id: "stamp", name: "Stamp", icon: "M7 3h10v6l-2 3v4H9v-4L7 9z M5 20h14", kind: "rect", after: "stamp" },
+    { id: "count", name: "Count (tally)", icon: "M12 3a9 9 0 100 18 9 9 0 000-18z M12 8v8M8 12h8", kind: "point" },
     { sep: true },
     { id: "length", name: "Measure length", icon: "M3 12h18M6 9v6M18 9v6", kind: "line", after: "measure" },
     { id: "area", name: "Measure area", icon: "M4 4h16v16H4z M4 4l16 16", kind: "poly", after: "measure" },
@@ -108,6 +109,15 @@
     }
 
     if (!tool) return;
+
+    // ---- point tool: drop a numbered count marker on click ----
+    if (tool.kind === "point") {
+      const d = S.style.fontSize * 1.6;
+      const a = A.create("count", info.pageNum, { rect: { x: p.x - d / 2, y: p.y - d / 2, w: d, h: d } });
+      A.select(a.id);
+      drag = null;
+      return;
+    }
 
     // ---- multi-point tools: cloud / area / polygon accumulate clicks ----
     if (tool.kind === "poly") {

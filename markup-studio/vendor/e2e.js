@@ -85,13 +85,40 @@ const server = http.createServer((req, res) => {
   });
   console.log("measure label:", mathOk);
 
+  // 8. estimating: place 3 count markers tagged "GPO", price at $85 ea → $255
+  const estOk = await page.evaluate(() => {
+    const MS = window.MS;
+    MS.state.rates = [{ id: "r1", code: "GPO", trade: "Electrical", desc: "Double outlet", unit: "ea", rate: 85 }];
+    MS.state.style.subject = "GPO";
+    for (let i = 0; i < 3; i++) MS.annotations.create("count", 1, { rect: { x: 50 + i * 30, y: 400, w: 20, h: 20 } });
+    const est = MS.pricing.build();
+    return { total: est.total, lines: est.list.length, qty: est.list[0] && est.list[0].qty };
+  });
+  console.log("estimate:", JSON.stringify(estOk));
+
+  // 9. length markup priced per-metre after calibration
+  const lenPrice = await page.evaluate(() => {
+    const MS = window.MS;
+    MS.state.calibration = { unitsPerPoint: 0.01, unit: "m" }; // 100pt = 1 m
+    MS.state.rates.push({ id: "r2", code: "Skirting", trade: "Carpentry", desc: "Skirting", unit: "m", rate: 20 });
+    MS.state.style.subject = "Skirting";
+    MS.annotations.create("length", 1, { points: [{ x: 0, y: 0 }, { x: 500, y: 0 }] }); // 500pt = 5m → 5*20 = 100
+    const est = MS.pricing.build();
+    const line = est.list.find((l) => l.rate.code === "Skirting");
+    return line ? line.amount : null;
+  });
+  console.log("skirting amount:", lenPrice);
+
   await browser.close();
   server.close();
 
   console.log("\nconsole errors:", errors.length);
   errors.forEach((e) => console.log("  ", e));
 
-  const pass = tools > 10 && pageCount === 1 && annots >= 1 && annots2 >= 2 && listItems >= 1 && exportOk === true && mathOk === "10 m" && errors.length === 0;
+  const pass = tools > 10 && pageCount === 1 && annots >= 1 && annots2 >= 2 && listItems >= 1 &&
+    exportOk === true && mathOk === "10 m" &&
+    estOk.total === 255 && estOk.lines === 1 && estOk.qty === 3 &&
+    lenPrice === 100 && errors.length === 0;
   console.log("\n" + (pass ? "PASS ✅" : "FAIL ❌"));
   process.exit(pass ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -29,7 +29,7 @@ it over `http(s)://` rather than `file://` so the PDF.js web worker can load.
 
 **Markup tools** (left rail)
 - Rectangle, ellipse, revision cloud, line, arrow, freehand ink, highlight
-- Text box, callout (leader + note), stamp (e.g. `APPROVED`)
+- Text box, callout (leader + note), stamp (e.g. `APPROVED`), count/tally marker
 - Select / move / resize / delete; per-markup color, line weight, fill & font
 
 **Measurement & takeoff**
@@ -65,21 +65,46 @@ it over `http(s)://` rather than `file://` so the PDF.js web worker can load.
 | `H` | Highlight | | |
 | `M` | Measure length | | |
 
-## Using it for estimating (quantity takeoff)
+## Estimating (Estimate tab)
 
 Estimating from drawings is fundamentally: **measure quantities → apply unit
-rates → total**. Markup Studio produces the measured quantities; the CSV export
-is the takeoff sheet an estimator applies rates to.
+rates → total**. Markup Studio now does all three — the Estimate tab holds a
+rate library and prices your markups live.
 
 1. **Calibrate** the sheet scale (Calibrate tool → draw a line of known length → enter the real length).
-2. **Count** items with the stamp/rectangle tools, **measure lengths** (e.g. runs of pipe, skirting) and **areas** (e.g. floor finishes) with the measure tools.
-3 Use the **Subject** field to tag each markup with a trade or cost code (e.g. `Concrete`, `Electrical`).
-4. **Export CSV** — you get one row per markup with its quantity and unit.
-5. In a spreadsheet, add a **Rate** column and `Quantity × Rate` for line totals,
-   then subtotal by Subject. That grouped, rated takeoff is the estimate.
+2. **Measure & count:** lengths (runs of pipe, skirting), areas (floor finishes),
+   and **count markers** for fixtures (doors, GPOs, downlights). Each markup's
+   quantity is: count/shape → 1 `ea`, length → calibrated metres, area → calibrated m².
+3. **Tag** each markup with a **Subject** matching a rate's **Code** or **Trade**.
+4. Maintain the **Rate Library** (add/edit rates, or **Import**/**Export** CSV with
+   columns `Code, Trade, Description, Unit, Rate`).
+5. The **Estimate** panel groups priced markups by trade, subtotals each trade,
+   and shows a grand total. **Export CSV** for a full estimate sheet.
 
-This mirrors the standard measured-quantity method used across the construction
-estimating industry; the numbers come from your own drawings and your own rates.
+Pricing only matches a markup to a rate when their **units are dimensionally
+compatible** (count↔`ea`, length↔`m`, area↔`m2`), so a measured length is never
+mispriced against an each-rate. Anything tagged but unmatched is listed as
+*Unpriced* with the reason.
+
+### Where do the rates come from?
+
+The rates are **yours**. The library ships with clearly-labelled `(SAMPLE)`
+placeholder numbers — replace them with your own.
+
+Commercial cost-book publishers (Rawlhouse, Rawlinsons, CoreLogic/Cordell, etc.)
+sell **licensed** rate data; that data is their copyright and is not bundled
+here. If you subscribe to one, export/enter those rates into the library
+yourself. To build rates from first principles, each unit rate is a **build-up**:
+
+```
+unit rate = material (incl. waste %) + labour (hours × crew $/hr)
+          + plant/equipment + subcontractor + margin/overhead %
+```
+
+e.g. a metre of skirting = board $/m (＋ ~10% waste) + fixer minutes × $/hr +
+fixings + adhesive + your margin. That build-up, applied to the quantities this
+tool measures, is the estimate — the same measured-quantity method used across
+the construction estimating industry.
 
 ## File layout
 
@@ -93,6 +118,7 @@ markup-studio/
   js/tools.js         # tool rail + pointer interaction
   js/markuplist.js    # markups list, filtering, CSV, takeoff totals
   js/workflows.js     # presets, checklist, saved workflows
+  js/pricing.js       # rate library + live cost estimate rollup
   js/export.js        # .mstudio save/load + flattened PDF export
   js/main.js          # bootstrap + UI wiring
 ```

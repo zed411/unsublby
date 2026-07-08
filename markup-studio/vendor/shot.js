@@ -31,9 +31,17 @@ const server = http.createServer((req, res) => {
   await page.click('.swatch[data-color="#3b82f6"]');
   await page.click('.tool-btn[data-tool="length"]');
   await page.mouse.move(b.x + 70, b.y + 250); await page.mouse.down(); await page.mouse.move(b.x + 330, b.y + 250, { steps: 5 }); await page.mouse.up();
+  // count markers tagged for estimating
+  await page.fill("#subject-input", "GPO");
+  await page.click('.tool-btn[data-tool="count"]');
+  for (const [dx, dy] of [[120, 400], [180, 430], [240, 405]]) await page.mouse.click(b.x + dx, b.y + dy);
   await page.click('.tool-btn[data-tool="select"]');
-  await page.mouse.click(b.x + 500, b.y + 500);
+  await page.mouse.click(b.x + 550, b.y + 600);
   await page.screenshot({ path: "/tmp/claude-0/-home-user/727cf07f-47b4-5036-aaaf-34befe0e2c86/scratchpad/markup-studio.png" });
+  // switch to Estimate tab for a second shot
+  await page.click('.tab[data-tab="estimate"]');
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: "/tmp/claude-0/-home-user/727cf07f-47b4-5036-aaaf-34befe0e2c86/scratchpad/markup-studio-estimate.png" });
   await browser.close(); server.close();
   console.log("screenshot saved");
 })();

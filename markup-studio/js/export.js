@@ -15,6 +15,8 @@
       numPages: S.numPages,
       calibration: S.calibration,
       annotations: S.annotations,
+      estimateName: S.estimateName,
+      rates: S.rates,
     };
     MS.download(JSON.stringify(doc, null, 2),
       (S.fileName || "project").replace(/\.pdf$/i, "") + ".mstudio", "application/json");
@@ -24,6 +26,14 @@
     if (!obj || !Array.isArray(obj.annotations)) { alert("Not a valid Markup Studio file."); return; }
     S.annotations = obj.annotations;
     S.calibration = obj.calibration || null;
+    if (typeof obj.estimateName === "string") {
+      S.estimateName = obj.estimateName;
+      const pn = document.getElementById("est-project");
+      if (pn) pn.value = obj.estimateName;
+    }
+    if (Array.isArray(obj.rates) && obj.rates.length) {
+      S.rates = obj.rates; MS.savePrefs(); if (MS.pricing) MS.pricing.render();
+    }
     if (S.calibration) {
       const ind = document.getElementById("calib-indicator");
       ind.textContent = "1 " + S.calibration.unit + " scale set";
@@ -112,6 +122,16 @@
           }
           page.drawRectangle({ x: r.x, y: fy(r.y + r.h), width: r.w, height: r.h, borderColor: col, borderWidth: lw, color: rgb(1, 1, 1), opacity: 0.9 });
           drawWrapped(page, font, a.text || "", r, fy, a.fontSize, rgb(0.07, 0.09, 0.15));
+          break;
+        }
+        case "count": {
+          const r = norm(a.rect);
+          const cx = r.x + r.w / 2, cy = fy(r.y + r.h / 2), rad = r.w / 2;
+          page.drawCircle({ x: cx, y: cy, size: rad, color: col, opacity: 0.9, borderColor: rgb(1, 1, 1), borderWidth: 1 });
+          const num = String(A.countIndex(a));
+          const fs = rad * 1.1;
+          const tw = fontBold.widthOfTextAtSize(num, fs);
+          page.drawText(num, { x: cx - tw / 2, y: cy - fs * 0.35, size: fs, font: fontBold, color: rgb(1, 1, 1) });
           break;
         }
         case "stamp": {
