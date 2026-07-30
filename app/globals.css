@@ -246,6 +246,21 @@ button {
   font-weight: 800;
 }
 
+.back-link {
+  justify-self: start;
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.back-link::before {
+  content: "\2190\00a0";
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
 .eyebrow {
   color: var(--mint-strong);
   font-size: 0.78rem;

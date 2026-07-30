@@ -8,3 +8,6 @@ node_modules/
 /.clerk/
 
 tsconfig.tsbuildinfo
+
+# local sqlite database
+unsubly.local.db*
