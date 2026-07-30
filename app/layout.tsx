@@ -1,10 +1,36 @@
 import { ClerkProvider } from "@clerk/nextjs";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { getAppUrl } from "../lib/security";
 import "./globals.css";
 
+const description =
+  "Unsubly scans your inbox with read-only permission, finds subscriptions, newsletters, and notification lists, and helps you unsubscribe in one click.";
+
 export const metadata: Metadata = {
-  title: "Unsubly",
-  description: "Find and clean up subscriptions, newsletters, and notification lists."
+  metadataBase: new URL(getAppUrl()),
+  title: {
+    default: "Unsubly — Clean up your inbox subscriptions",
+    template: "%s · Unsubly"
+  },
+  description,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Unsubly",
+    title: "Unsubly — Clean up your inbox subscriptions",
+    description,
+    url: "/"
+  },
+  twitter: {
+    card: "summary",
+    title: "Unsubly — Clean up your inbox subscriptions",
+    description
+  },
+  robots: { index: true, follow: true }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0c6b78"
 };
 
 export default function RootLayout({

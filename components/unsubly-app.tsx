@@ -70,6 +70,8 @@ export function UnsublyApp({
   const [deepSearchUnlocked, setDeepSearchUnlocked] = useState(initialPaid);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [unsubscribingId, setUnsubscribingId] = useState("");
   const [scanHasRun, setScanHasRun] = useState(!authEnabled && Boolean(startingIdentity && subscriptions.length));
   const autoScanStarted = useRef(false);
   const canRunRealScan = !authEnabled || isSignedIn;
@@ -95,11 +97,11 @@ export function UnsublyApp({
   const saved = subscriptions.filter((item) => item.saved).length;
   const removed = subscriptions.filter((item) => item.status === "removed").length;
 
-  function applyScanResults(value: string, results: Subscription[], hint: string) {
+  function applyScanResults(value: string, results: Subscription[], hint: string, unlocked = false) {
     setIdentity(value.trim());
     setSubscriptions(results);
     setSelectedSubscriptionId("");
-    setDeepSearchUnlocked(false);
+    setDeepSearchUnlocked(unlocked);
     setActiveFilter("all");
     setScanHasRun(true);
     setFormHint(hint);
@@ -112,14 +114,19 @@ export function UnsublyApp({
       const response = await fetch("/api/email/scan", { method: "POST" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Email scan failed.");
+      const shown = payload.subscriptions.length;
+      const total = payload.totalFound ?? shown;
       applyScanResults(
         scanValue,
         payload.subscriptions,
         payload.empty
           ? "Gmail scan complete. No subscriptions were found in your connected Gmail yet."
           : payload.unlocked
-            ? `Full Gmail scan complete. Showing ${payload.subscriptions.length} real result${payload.subscriptions.length === 1 ? "" : "s"}.`
-            : `Free Gmail scan complete. Showing up to 6 real result${payload.subscriptions.length === 1 ? "" : "s"}.`
+            ? `Full Gmail scan complete. Showing ${shown} real result${shown === 1 ? "" : "s"}.`
+            : total > shown
+              ? `Free Gmail scan complete. Showing ${shown} of ${total} found. Unlock Deep Search to see the rest.`
+              : `Free Gmail scan complete. Showing ${shown} real result${shown === 1 ? "" : "s"}.`,
+        Boolean(payload.unlocked)
       );
     } catch (error) {
       setFormHint(error instanceof Error ? error.message : "Email scan failed.");
@@ -173,17 +180,114 @@ export function UnsublyApp({
     setSubscriptions((current) => current.map((subscription) => (subscription.id === id ? updater(subscription) : subscription)));
   }
 
-  function restoreSubscription(id: string) {
-    const original = createFullList().find((subscription) => subscription.id === id);
-    if (!original) return;
-    updateSubscription(id, (subscription) => ({ ...subscription, status: original.status, saved: false }));
+  function markRemoved(id: string, action?: string) {
+    updateSubscription(id, (item) => ({
+      ...item,
+      previousStatus: item.status,
+      status: "removed",
+      saved: false,
+      action: action ?? item.action
+    }));
   }
 
-  function bulkRemoveReady() {
-    setSubscriptions((current) =>
-      current.map((subscription) =>
-        subscription.status === "ready" ? { ...subscription, status: "removed", saved: false } : subscription
-      )
+  function restoreSubscription(id: string) {
+    updateSubscription(id, (item) => ({
+      ...item,
+      status: item.previousStatus && item.previousStatus !== "removed" ? item.previousStatus : "ready",
+      previousStatus: undefined,
+      saved: false
+    }));
+  }
+
+  async function requestUnsubscribe(messageId: string) {
+    const response = await fetch("/api/email/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Unsubscribe failed.");
+    return payload as { method: "one-click" | "link"; url?: string };
+  }
+
+  async function unsubscribeSubscription(subscription: Subscription) {
+    if (!subscription.messageId) {
+      markRemoved(subscription.id);
+      return;
+    }
+
+    setUnsubscribingId(subscription.id);
+    try {
+      const result = await requestUnsubscribe(subscription.messageId);
+      if (result.method === "one-click") {
+        markRemoved(subscription.id, "One-click unsubscribe request sent to the sender.");
+      } else if (result.url) {
+        window.open(result.url, "_blank", "noopener,noreferrer");
+        markRemoved(subscription.id, "Unsubscribe page opened in a new tab. Finish there if the sender asks for confirmation.");
+      } else {
+        throw new Error("No unsubscribe link available for this email.");
+      }
+    } catch (error) {
+      updateSubscription(subscription.id, (item) => ({
+        ...item,
+        action: error instanceof Error ? error.message : "Unsubscribe failed. Try the original link."
+      }));
+    } finally {
+      setUnsubscribingId("");
+    }
+  }
+
+  function openAccountPage(subscription: Subscription) {
+    if (subscription.link) {
+      window.open(subscription.link, "_blank", "noopener,noreferrer");
+      updateSubscription(subscription.id, (item) => ({
+        ...item,
+        action: "Account page opened in a new tab. Sign in there to manage or cancel it."
+      }));
+    } else {
+      updateSubscription(subscription.id, (item) => ({
+        ...item,
+        action: "No account link was found for this sender."
+      }));
+    }
+  }
+
+  async function bulkRemoveReady() {
+    const readyItems = subscriptions.filter((item) => item.status === "ready");
+    if (!readyItems.length) return;
+
+    readyItems.filter((item) => !item.messageId).forEach((item) => markRemoved(item.id));
+
+    const oneClickItems = readyItems.filter((item) => item.messageId && item.oneClick);
+    const linkOnlyCount = readyItems.filter((item) => item.messageId && !item.oneClick).length;
+
+    if (!oneClickItems.length) {
+      if (linkOnlyCount) {
+        setFormHint(
+          `${linkOnlyCount} item${linkOnlyCount === 1 ? " needs" : "s need"} their unsubscribe page opened individually. Use the Unsubscribe button on each card.`
+        );
+      }
+      return;
+    }
+
+    setBulkBusy(true);
+    let sent = 0;
+    for (const item of oneClickItems) {
+      try {
+        const result = await requestUnsubscribe(item.messageId!);
+        if (result.method === "one-click") {
+          markRemoved(item.id, "One-click unsubscribe request sent to the sender.");
+          sent += 1;
+        }
+      } catch {
+        // Leave the item in place; the per-card button shows any error.
+      }
+    }
+    setBulkBusy(false);
+    setFormHint(
+      `${sent} one-click unsubscribe${sent === 1 ? "" : "s"} sent.${
+        linkOnlyCount ? ` ${linkOnlyCount} item${linkOnlyCount === 1 ? " still needs" : "s still need"} their unsubscribe page opened individually.` : ""
+      }`
     );
   }
 
@@ -219,7 +323,8 @@ export function UnsublyApp({
   async function disconnectGmail() {
     setScanBusy(true);
     try {
-      await fetch("/api/email/google/disconnect", { method: "POST" });
+      const response = await fetch("/api/email/google/disconnect", { method: "POST" });
+      if (!response.ok) throw new Error("Disconnect failed.");
       window.location.href = "/?email=disconnected#scan";
     } catch {
       setFormHint("Gmail could not be disconnected. Try again.");
@@ -396,6 +501,7 @@ export function UnsublyApp({
                 className={`filter-chip ${activeFilter === filter ? "active" : ""}`}
                 type="button"
                 key={filter}
+                aria-pressed={activeFilter === filter}
                 onClick={() => setActiveFilter(filter)}
               >
                 {filter === "ready" ? "One-click" : filter[0].toUpperCase() + filter.slice(1)}
@@ -412,8 +518,8 @@ export function UnsublyApp({
                   : "Run a scan to see what Unsubly finds."}
               </p>
             </div>
-            <button className="secondary-button" type="button" disabled={ready === 0} onClick={bulkRemoveReady}>
-              Unsubscribe Ready Items
+            <button className="secondary-button" type="button" disabled={ready === 0 || bulkBusy} onClick={bulkRemoveReady}>
+              {bulkBusy ? "Unsubscribing..." : "Unsubscribe Ready Items"}
             </button>
           </div>
 
@@ -471,25 +577,19 @@ export function UnsublyApp({
                         <button
                           className="primary-action"
                           type="button"
-                          onClick={() =>
-                            canUnsubscribe
-                              ? updateSubscription(subscription.id, (item) => ({ ...item, status: "removed", saved: false }))
-                              : updateSubscription(subscription.id, (item) => ({
-                                  ...item,
-                                  action: "Account page opened in a real integration. Login is still required."
-                                }))
-                          }
+                          disabled={unsubscribingId === subscription.id || bulkBusy}
+                          onClick={() => (canUnsubscribe ? unsubscribeSubscription(subscription) : openAccountPage(subscription))}
                         >
-                          {canUnsubscribe ? "Unsubscribe" : "Open Account"}
+                          {canUnsubscribe
+                            ? unsubscribingId === subscription.id
+                              ? "Unsubscribing..."
+                              : "Unsubscribe"
+                            : "Open Account"}
                         </button>
                         <button type="button" onClick={() => updateSubscription(subscription.id, (item) => ({ ...item, saved: !item.saved }))}>
                           {subscription.saved ? "Kept" : "Keep"}
                         </button>
-                        <button
-                          className="danger-action"
-                          type="button"
-                          onClick={() => updateSubscription(subscription.id, (item) => ({ ...item, status: "removed", saved: false }))}
-                        >
+                        <button className="danger-action" type="button" onClick={() => markRemoved(subscription.id)}>
                           Not Mine
                         </button>
                       </>
@@ -511,20 +611,16 @@ export function UnsublyApp({
                     : "Unlock the full list of every subscription, account, and notification Unsubly can find for $0.99."}
                 </p>
               </div>
-              {initialDemoMode || deepSearchUnlocked ? (
-                <button className="unlock-button" type="button" disabled={deepSearchUnlocked || checkoutBusy} onClick={unlockFullList}>
-                  {deepSearchUnlocked ? "Full List Active" : checkoutBusy ? "Opening Checkout..." : "Unlock Full List - $0.99"}
-                </button>
-              ) : authEnabled && !isSignedIn ? (
+              {authEnabled && !isSignedIn && !initialDemoMode ? (
                 <SignInButton mode="modal">
                   <button className="unlock-button" type="button">
                     Sign In To Unlock
                   </button>
                 </SignInButton>
               ) : (
-                <a className="unlock-button" href="/api/create-checkout-session">
-                  Unlock Full List - $0.99
-                </a>
+                <button className="unlock-button" type="button" disabled={deepSearchUnlocked || checkoutBusy} onClick={unlockFullList}>
+                  {deepSearchUnlocked ? "Full List Active" : checkoutBusy ? "Opening Checkout..." : "Unlock Full List - $0.99"}
+                </button>
               )}
             </aside>
           )}
@@ -546,9 +642,13 @@ export function UnsublyApp({
                 </div>
                 <div>
                   <span>Original link</span>
-                  <a href={selectedSubscription.link} target="_blank" rel="noreferrer">
-                    {selectedSubscription.link}
-                  </a>
+                  {selectedSubscription.link ? (
+                    <a href={selectedSubscription.link} target="_blank" rel="noreferrer">
+                      {selectedSubscription.link}
+                    </a>
+                  ) : (
+                    <strong>Not available</strong>
+                  )}
                 </div>
                 <div>
                   <span>Status</span>

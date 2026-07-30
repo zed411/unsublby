@@ -1,11 +1,11 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUserId } from "../../../../../lib/auth";
 import { saveEmailConnection } from "../../../../../lib/db";
 import { exchangeGoogleCode, getGoogleProfile, verifyGoogleState } from "../../../../../lib/email-providers";
 import { getAppUrl } from "../../../../../lib/security";
 
 export async function GET(request: NextRequest) {
-  const { userId } = await auth();
+  const userId = await getAuthUserId();
   const appUrl = getAppUrl();
   if (!userId) return NextResponse.redirect(`${appUrl}/sign-in`, 303);
 

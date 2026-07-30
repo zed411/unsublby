@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  alternates: { canonical: "/privacy" }
+};
+
 export default function PrivacyPage() {
   return (
     <main className="legal-page">
       <section className="legal-card">
         <p className="eyebrow">Unsubly</p>
+        <a className="back-link" href="/">
+          Back to Unsubly
+        </a>
         <h1>Privacy Policy</h1>
         <p className="legal-updated">Last updated: May 27, 2026</p>
 

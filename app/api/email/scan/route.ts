@@ -1,31 +1,26 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
-import { getEmailConnection, isDeepSearchUnlocked, saveEmailConnection } from "../../../../lib/db";
-import { refreshGoogleAccessToken, scanGmail } from "../../../../lib/email-providers";
-import { hashIdentity } from "../../../../lib/security";
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthUserId } from "../../../../lib/auth";
+import { isDeepSearchUnlocked } from "../../../../lib/db";
+import { getFreshAccessToken } from "../../../../lib/email-access";
+import { scanGmail } from "../../../../lib/email-providers";
+import { hashIdentity, isAllowedOrigin, isRateLimited } from "../../../../lib/security";
 
-export async function POST() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Sign in before scanning." }, { status: 401 });
-
-  const connection = await getEmailConnection(userId, "google");
-  if (!connection) {
-    return NextResponse.json({ error: "Connect Gmail before starting a real scan." }, { status: 409 });
+export async function POST(request: NextRequest) {
+  if (!isAllowedOrigin(request)) {
+    return NextResponse.json({ error: "Origin is not allowed." }, { status: 403 });
   }
 
+  if (isRateLimited(request)) {
+    return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
+  }
+
+  const userId = await getAuthUserId();
+  if (!userId) return NextResponse.json({ error: "Sign in before scanning." }, { status: 401 });
+
   try {
-    let accessToken = connection.access_token;
-    if (connection.expires_at < Date.now() + 60_000 && connection.refresh_token) {
-      const refreshed = await refreshGoogleAccessToken(connection.refresh_token);
-      accessToken = refreshed.accessToken;
-      await saveEmailConnection({
-        userId,
-        provider: "google",
-        email: connection.email,
-        accessToken,
-        refreshToken: connection.refresh_token,
-        expiresAt: refreshed.expiresAt
-      });
+    const accessToken = await getFreshAccessToken(userId);
+    if (!accessToken) {
+      return NextResponse.json({ error: "Connect Gmail before starting a real scan." }, { status: 409 });
     }
 
     const fullScanUnlocked = await isDeepSearchUnlocked(hashIdentity(`user:${userId}`));

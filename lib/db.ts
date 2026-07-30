@@ -32,12 +32,22 @@ export function getStorageMode() {
   return usePostgres() ? "postgres" : "sqlite";
 }
 
+let warnedAboutTokenKeyFallback = false;
+
 function tokenKey() {
   const secret =
     process.env.EMAIL_TOKEN_ENCRYPTION_KEY ||
     process.env.EMAIL_OAUTH_STATE_SECRET ||
     process.env.CLERK_SECRET_KEY ||
     "local-dev-token-key";
+
+  if (!process.env.EMAIL_TOKEN_ENCRYPTION_KEY && process.env.NODE_ENV === "production" && !warnedAboutTokenKeyFallback) {
+    warnedAboutTokenKeyFallback = true;
+    console.warn(
+      "EMAIL_TOKEN_ENCRYPTION_KEY is not set. OAuth tokens are being encrypted with a fallback key; rotating that fallback secret will make stored tokens unreadable."
+    );
+  }
+
   return createHash("sha256").update(secret).digest();
 }
 

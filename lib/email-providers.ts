@@ -22,6 +22,7 @@ type GmailMessageList = {
 
 type GmailMessage = {
   id: string;
+  internalDate?: string;
   payload?: {
     headers?: Array<{ name: string; value: string }>;
   };
@@ -153,7 +154,7 @@ function headerValue(message: GmailMessage, name: string) {
 
 function hostName(value: string) {
   const match = value.match(/@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/);
-  return match?.[1]?.replace(/^mail\./, "") || "unknown sender";
+  return match?.[1]?.replace(/^mail\./, "") || "";
 }
 
 function displayName(value: string) {
@@ -162,10 +163,24 @@ function displayName(value: string) {
   return hostName(value).split(".")[0] || "Subscription";
 }
 
+function formatMessageDate(internalDate: string | undefined) {
+  const timestamp = Number(internalDate);
+  if (!timestamp) return "Recently";
+  return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function extractUnsubscribeTarget(listUnsubscribe: string, listUnsubscribePost: string) {
+  const httpsMatch = listUnsubscribe.match(/https?:\/\/[^>,\s]+/);
+  const url = httpsMatch?.[0] || "";
+  const oneClick = Boolean(url) && /one-click/i.test(listUnsubscribePost);
+  return { url, oneClick };
+}
+
 function subscriptionFromMessage(message: GmailMessage, index: number): Subscription | null {
   const subject = headerValue(message, "Subject");
   const from = headerValue(message, "From");
   const listUnsubscribe = headerValue(message, "List-Unsubscribe");
+  const listUnsubscribePost = headerValue(message, "List-Unsubscribe-Post");
   const lowerText = `${subject} ${from} ${message.snippet || ""} ${listUnsubscribe}`.toLowerCase();
   const looksRelevant =
     Boolean(listUnsubscribe) ||
@@ -179,20 +194,30 @@ function subscriptionFromMessage(message: GmailMessage, index: number): Subscrip
   if (!looksRelevant) return null;
 
   const fromHost = hostName(from);
-  const linkMatch = listUnsubscribe.match(/https?:\/\/[^>,\s]+/);
+  const { url: unsubscribeUrl, oneClick } = extractUnsubscribeTarget(listUnsubscribe, listUnsubscribePost);
   return {
     id: `gmail-${message.id || index}`,
+    messageId: message.id,
     name: displayName(from),
     category: lowerText.includes("receipt") || lowerText.includes("renewal") ? "Paid" : listUnsubscribe ? "Newsletter" : "Notifications",
     source: listUnsubscribe ? "Unsubscribe header found" : "Subscription signal found",
-    lastSeen: "Recently",
-    confidence: listUnsubscribe ? 94 : 74,
-    status: linkMatch ? "ready" : "needs-login",
-    action: linkMatch ? "Unsubscribe link found" : "Review this account before removing",
-    link: linkMatch?.[0] || `https://${fromHost}`,
+    lastSeen: formatMessageDate(message.internalDate),
+    confidence: oneClick ? 97 : listUnsubscribe ? 94 : 74,
+    status: unsubscribeUrl ? "ready" : "needs-login",
+    action: oneClick
+      ? "One-click unsubscribe available"
+      : unsubscribeUrl
+        ? "Unsubscribe link found"
+        : "Review this account before removing",
+    link: unsubscribeUrl || (fromHost ? `https://${fromHost}` : ""),
+    oneClick,
     plan: subject || "Email subscription or notification",
     foundBy: "Connected Gmail scan"
   };
+}
+
+function dedupeKey(subscription: Subscription, from: string) {
+  return `${subscription.name.toLowerCase()}|${from.toLowerCase()}`;
 }
 
 export async function scanGmail(accessToken: string, limit = 12) {
@@ -213,10 +238,30 @@ export async function scanGmail(accessToken: string, limit = 12) {
     })
   );
 
-  const subscriptions = messages
+  const bySender = new Map<string, Subscription>();
+  messages
     .filter((message): message is GmailMessage => Boolean(message))
-    .map(subscriptionFromMessage)
-    .filter((subscription): subscription is Subscription => Boolean(subscription));
+    .forEach((message, index) => {
+      const subscription = subscriptionFromMessage(message, index);
+      if (!subscription) return;
+      const key = dedupeKey(subscription, hostName(headerValue(message, "From")));
+      const existing = bySender.get(key);
+      if (!existing || subscription.confidence > existing.confidence) {
+        bySender.set(key, subscription);
+      }
+    });
 
-  return subscriptions;
+  return [...bySender.values()].sort((a, b) => b.confidence - a.confidence);
+}
+
+export async function getUnsubscribeTargetForMessage(accessToken: string, messageId: string) {
+  const response = await fetch(`${GMAIL_API_URL}/${encodeURIComponent(messageId)}?format=metadata`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (!response.ok) return null;
+
+  const message = (await response.json()) as GmailMessage;
+  const target = extractUnsubscribeTarget(headerValue(message, "List-Unsubscribe"), headerValue(message, "List-Unsubscribe-Post"));
+  if (!target.url) return null;
+  return target;
 }

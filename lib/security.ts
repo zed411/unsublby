@@ -20,7 +20,27 @@ export function getAppUrl() {
 }
 
 export function getAllowedOrigins() {
-  return new Set((process.env.ALLOWED_ORIGINS || getAppUrl()).split(",").map((origin) => origin.trim()));
+  const origins = new Set(
+    (process.env.ALLOWED_ORIGINS || getAppUrl())
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  );
+
+  // Accept both apex and www forms of each configured origin so the site
+  // works whichever hostname the visitor lands on.
+  for (const origin of [...origins]) {
+    try {
+      const url = new URL(origin);
+      const withoutWww = url.hostname.replace(/^www\./, "");
+      origins.add(`${url.protocol}//${withoutWww}`);
+      origins.add(`${url.protocol}//www.${withoutWww}`);
+    } catch {
+      // Ignore malformed entries; the original value stays in the set.
+    }
+  }
+
+  return origins;
 }
 
 export function isAllowedOrigin(request: NextRequest) {
@@ -28,9 +48,9 @@ export function isAllowedOrigin(request: NextRequest) {
   return !origin || getAllowedOrigins().has(origin);
 }
 
-export function isRateLimited(request: NextRequest) {
+export function isRateLimited(request: NextRequest, maxRequests = maxRequestsPerWindow) {
   const now = Date.now();
-  const ip = request.headers.get("x-forwarded-for") || "local";
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const key = `${ip}:${request.nextUrl.pathname}`;
   const current = rateLimits.get(key);
 
@@ -40,7 +60,7 @@ export function isRateLimited(request: NextRequest) {
   }
 
   current.count += 1;
-  return current.count > maxRequestsPerWindow;
+  return current.count > maxRequests;
 }
 
 export function sanitizeReferenceId(value: unknown) {

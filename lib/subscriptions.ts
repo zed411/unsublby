@@ -13,6 +13,9 @@ export type Subscription = {
   plan: string;
   foundBy: string;
   saved?: boolean;
+  messageId?: string;
+  oneClick?: boolean;
+  previousStatus?: SubscriptionStatus;
 };
 
 export const previewSubscriptions: Subscription[] = [
